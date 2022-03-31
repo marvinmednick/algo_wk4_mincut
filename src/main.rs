@@ -28,7 +28,7 @@ impl Edge {
 	}
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 struct Vertex {
 	vertex_id: u32,
 	adjacent_edges: Vec<u32>
@@ -69,6 +69,44 @@ impl Graph {
 				vertex_map: v_map,
 				edge_map:  e_map,
 		}
+	}
+
+	pub fn add_vertex(&mut self,id: u32) -> Result<usize,&'static str> {
+
+		if self.vertex_map.contains_key(&id) {
+			Err("Vertex already exists")
+		} 
+		else { 
+			let v = Vertex::new(id.clone());
+			self.vertex_map.insert(id.clone(),v);
+			self.vertex_list.push(id.clone());
+			Ok(self.vertex_list.len())
+		}
+		
+	}
+
+	pub fn add_edge(&mut self, id: u32, v1: u32, v2: u32) -> Result<usize,&'static str> {
+		if self.edge_map.contains_key(&id) {
+			Err("Edge already exists")
+		} 
+		else {
+			 let v_map = &mut self.vertex_map;
+			 let mut v_map2 = v_map.clone();
+			 let vert1 = v_map.get_mut(&v1); 
+			 let vert2 = v_map2.get_mut(&v2); 
+			 if vert1.is_none() || vert2.is_none() {
+				Err("Vertex(es) don't exist")
+			 }
+			 else {
+				let e = Edge::new(id.clone(),v1,v2);
+				self.edge_map.insert(id.clone(),e);
+				self.edge_list.push(id.clone());
+				vert1.unwrap().add_edge(id.clone());
+				vert2.unwrap().add_edge(id.clone());
+				Ok(self.edge_list.len())
+			}
+		}
+
 	}
 }
 
@@ -134,6 +172,7 @@ mod tests {
 
     #[test]
     fn check1() {
+		let g = Graph::new();
     }
 
 }
