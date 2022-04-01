@@ -79,16 +79,16 @@ impl Graph {
 		}
 	}
 
-	pub fn add_vertex(&mut self,id: u32) -> Result<usize,&'static str> {
+	pub fn add_vertex(&mut self,id: u32) -> Option<usize> {
 
 		if self.vertex_map.contains_key(&id) {
-			Err("Vertex already exists")
+			None
 		} 
 		else { 
 			let v = Vertex::new(id.clone());
 			self.vertex_map.insert(id.clone(),v);
 			self.vertex_list.push(id.clone());
-			Ok(self.vertex_list.len())
+			Some(self.vertex_list.len())
 		}
 		
 	}
@@ -100,22 +100,19 @@ impl Graph {
 			Err("Edge already exists")
 		} 
 		else {
-			 let v_map = &mut self.vertex_map;
-			 let mut v_map2 = v_map.clone();
-			 let vert1 = v_map.get_mut(&v1); 
-			 let vert2 = v_map2.get_mut(&v2); 
-			 if vert1.is_none() || vert2.is_none() {
-				Err("Vertex(es) don't exist")
-			 }
-			 else {
-				let e = Edge::new(edge_name.clone(),v1,v2);
-				self.edge_map.insert(edge_name.clone(),e);
-				self.edge_list.push(edge_name.clone());
-				vert1.unwrap().add_edge(edge_name.clone());
-				vert2.unwrap().add_edge(edge_name.clone());
-				self.edge_index += 1;
-				Ok(self.edge_list.len())
-			}
+			self.add_vertex(v1);
+			self.add_vertex(v2);
+			let v_map = &mut self.vertex_map;
+			let mut v_map2 = v_map.clone();
+			let vert1 = v_map.get_mut(&v1); 
+			let vert2 = v_map2.get_mut(&v2); 
+			let e = Edge::new(edge_name.clone(),v1,v2);
+			self.edge_map.insert(edge_name.clone(),e);
+			self.edge_list.push(edge_name.clone());
+			vert1.unwrap().add_edge(edge_name.clone());
+			vert2.unwrap().add_edge(edge_name.clone());
+			self.edge_index += 1;
+			Ok(self.edge_list.len())
 		}
 
 	}
@@ -155,15 +152,19 @@ fn main() {
     };
 
     let reader = BufReader::new(file);
-	let mut digits = Vec::<i32>::new();
 
 	let mut _count = 0;
     for line in reader.lines() {
 		_count += 1;	
-		let x : i32 = line.unwrap().parse::<i32>().unwrap();
-		digits.push(x);
+		let line_data = line.unwrap();
+		let mut tokens = line_data.split_whitespace();
+		let vertex = tokens.next().unwrap();
+		let edges : Vec<String> = tokens.map(|x| x.to_string()).collect();
+		if _count < 10 {
+			println!("{} - Vertex: {} {:?}",_count,vertex,edges);
+		}
     }
-	println!("Read {} lines",digits.len());
+	println!("Read {} lines",_count);
 
 }
 
@@ -184,16 +185,20 @@ mod tests {
     #[test]
     fn check1() {
 		let mut g = Graph::new(GraphType::Undirected);
-		assert_eq!(g.add_vertex(1),Ok(1));
-		assert_eq!(g.add_vertex(2),Ok(2));
+		assert_eq!(g.add_vertex(1),Some(1));
+		assert_eq!(g.add_vertex(2),Some(2));
 		assert_eq!(g.add_edge(1,2),Ok(1));
 		assert_eq!(g.vertex_list,vec!(1,2));
 		assert_eq!(g.edge_list,vec!("1:1_2".to_string()));
-		assert_eq!(g.add_vertex(3),Ok(3));
+		assert_eq!(g.add_vertex(3),Some(3));
 		assert_eq!(g.add_edge(1,3),Ok(2));
 		assert_eq!(g.add_edge(2,3),Ok(3));
 		assert_eq!(g.vertex_list,vec!(1,2,3));
 		assert_eq!(g.edge_list,vec!("1:1_2".to_string(),"2:1_3".to_string(),"3:2_3".to_string()));
+		assert_eq!(g.add_edge(1,4),Ok(4));
+		assert_eq!(g.vertex_list,vec!(1,2,3,4));
+		assert_eq!(g.edge_list,vec!("1:1_2".to_string(),"2:1_3".to_string(),"3:2_3".to_string(),"4:1_4".to_string()));
+		println!("{:?}",g);
 
     }
 
