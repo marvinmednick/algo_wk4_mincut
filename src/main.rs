@@ -7,11 +7,9 @@ use std::collections::{HashMap};
 
 
 
-
-
 #[derive(Debug)]
 struct Edge {
-	edge_id: u32,
+	edge_id: String,
 	vertex1: u32,
 	vertex2: u32,	
 }
@@ -19,7 +17,7 @@ struct Edge {
 
 impl Edge {
 
-	pub fn new(id : u32, v1: u32, v2: u32) -> Edge {
+	pub fn new(id : String, v1: u32, v2: u32) -> Edge {
 		Edge {
 			edge_id: id,
 			vertex1: v1,
@@ -31,43 +29,53 @@ impl Edge {
 #[derive(Debug, Clone)]
 struct Vertex {
 	vertex_id: u32,
-	adjacent_edges: Vec<u32>
+	adjacent_edges: Vec<String>
 }
 
 impl Vertex {
 
 	pub fn new(id : u32) -> Vertex {
-		let adjacent = Vec::<u32>::new();
+		let adjacent = Vec::<String>::new();
 		Vertex {vertex_id: id, adjacent_edges: adjacent}
 	}
 	
-	pub fn add_edge(&mut self, edge_id: u32) {
+	pub fn add_edge(&mut self, edge_id: String) {
 		self.adjacent_edges.push(edge_id);
 	}
 	
 }
 
+#[derive(Debug)]
+enum GraphType {
+	Undirected,
+	Directed
+
+}
 
 #[derive(Debug)]
 struct Graph {
-	vertex_list: Vec<u32>,
-	edge_list:Vec<u32>,
+	graph_type: GraphType,
+	pub vertex_list: Vec<u32>,
+	pub edge_list:Vec<String>,
 	vertex_map:  HashMap::<u32, Vertex>,
-	edge_map:   HashMap::<u32, Edge>,
+	edge_map:   HashMap::<String, Edge>,
+	edge_index: u32,
 }
 
 
 impl Graph {
-	pub fn new() -> Graph {
+	pub fn new(gtype: GraphType) -> Graph {
 		let v_list = Vec::<u32>::new();
-		let e_list = Vec::<u32>::new();
+		let e_list = Vec::<String>::new();
 		let v_map = HashMap::<u32, Vertex>::new();
-		let e_map = HashMap::<u32, Edge>::new();
+		let e_map = HashMap::<String, Edge>::new();
 		Graph {
+				graph_type:  gtype,
 				vertex_list : v_list,
 				edge_list:  e_list,
 				vertex_map: v_map,
 				edge_map:  e_map,
+				edge_index: 0
 		}
 	}
 
@@ -85,8 +93,10 @@ impl Graph {
 		
 	}
 
-	pub fn add_edge(&mut self, id: u32, v1: u32, v2: u32) -> Result<usize,&'static str> {
-		if self.edge_map.contains_key(&id) {
+	pub fn add_edge(&mut self, v1: u32, v2: u32) -> Result<usize,&'static str> {
+
+		let edge_name = format!("{}:{}_{}",self.edge_index+1,v1,v2).to_string();
+		if self.edge_map.contains_key(&edge_name) {
 			Err("Edge already exists")
 		} 
 		else {
@@ -98,11 +108,12 @@ impl Graph {
 				Err("Vertex(es) don't exist")
 			 }
 			 else {
-				let e = Edge::new(id.clone(),v1,v2);
-				self.edge_map.insert(id.clone(),e);
-				self.edge_list.push(id.clone());
-				vert1.unwrap().add_edge(id.clone());
-				vert2.unwrap().add_edge(id.clone());
+				let e = Edge::new(edge_name.clone(),v1,v2);
+				self.edge_map.insert(edge_name.clone(),e);
+				self.edge_list.push(edge_name.clone());
+				vert1.unwrap().add_edge(edge_name.clone());
+				vert2.unwrap().add_edge(edge_name.clone());
+				self.edge_index += 1;
 				Ok(self.edge_list.len())
 			}
 		}
@@ -172,7 +183,18 @@ mod tests {
 
     #[test]
     fn check1() {
-		let g = Graph::new();
+		let mut g = Graph::new(GraphType::Undirected);
+		assert_eq!(g.add_vertex(1),Ok(1));
+		assert_eq!(g.add_vertex(2),Ok(2));
+		assert_eq!(g.add_edge(1,2),Ok(1));
+		assert_eq!(g.vertex_list,vec!(1,2));
+		assert_eq!(g.edge_list,vec!("1:1_2".to_string()));
+		assert_eq!(g.add_vertex(3),Ok(3));
+		assert_eq!(g.add_edge(1,3),Ok(2));
+		assert_eq!(g.add_edge(2,3),Ok(3));
+		assert_eq!(g.vertex_list,vec!(1,2,3));
+		assert_eq!(g.edge_list,vec!("1:1_2".to_string(),"2:1_3".to_string(),"3:2_3".to_string()));
+
     }
 
 }
