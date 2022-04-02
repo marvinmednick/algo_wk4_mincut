@@ -34,9 +34,9 @@ struct Vertex {
 
 impl Vertex {
 
-	pub fn new(id : u32) -> Vertex {
+	pub fn new(id : &u32) -> Vertex {
 		let adjacent = Vec::<String>::new();
-		Vertex {vertex_id: id, adjacent_edges: adjacent}
+		Vertex {vertex_id: id.clone(), adjacent_edges: adjacent}
 	}
 	
 	pub fn add_edge(&mut self, edge_id: String) {
@@ -79,13 +79,13 @@ impl Graph {
 		}
 	}
 
-	pub fn add_vertex(&mut self,id: u32) -> Option<usize> {
+	pub fn add_vertex(&mut self,id: &u32) -> Option<usize> {
 
 		if self.vertex_map.contains_key(&id) {
 			None
 		} 
 		else { 
-			let v = Vertex::new(id.clone());
+			let v = Vertex::new(&id);
 			self.vertex_map.insert(id.clone(),v);
 			self.vertex_list.push(id.clone());
 			Some(self.vertex_list.len())
@@ -96,12 +96,16 @@ impl Graph {
 	pub fn add_edge(&mut self, v1: u32, v2: u32) -> Result<usize,&'static str> {
 
 		let edge_name = format!("{}:{}_{}",self.edge_index+1,v1,v2).to_string();
+
+		// I don't think this can happen since now the edge name is unique
+		// based on an internal incrementing count. so two edges between the same 
+		// vertexes would still have differrent names
 		if self.edge_map.contains_key(&edge_name) {
 			Err("Edge already exists")
 		} 
 		else {
-			self.add_vertex(v1);
-			self.add_vertex(v2);
+			self.add_vertex(&v1);
+			self.add_vertex(&v2);
 			let v_map = &mut self.vertex_map;
 			let mut v_map2 = v_map.clone();
 			let vert1 = v_map.get_mut(&v1); 
@@ -153,15 +157,22 @@ fn main() {
 
     let reader = BufReader::new(file);
 
+	let mut g = Graph::new(GraphType::Undirected);
+
 	let mut _count = 0;
     for line in reader.lines() {
 		_count += 1;	
 		let line_data = line.unwrap();
 		let mut tokens = line_data.split_whitespace();
-		let vertex = tokens.next().unwrap();
-		let edges : Vec<String> = tokens.map(|x| x.to_string()).collect();
+		let vertex = tokens.next().unwrap().parse::<u32>().unwrap();
+		let adjacent : Vec<u32> = tokens.map(|x| x.to_string().parse::<u32>().unwrap()).collect();
+
+		g.add_vertex(&vertex);
+		for other_v in &adjacent {
+			let num_edges = g.add_edge(vertex,*other_v);
+		}
 		if _count < 10 {
-			println!("{} - Vertex: {} {:?}",_count,vertex,edges);
+			println!("{} - Vertex: {} {:?}",_count,vertex,adjacent);
 		}
     }
 	println!("Read {} lines",_count);
@@ -185,12 +196,12 @@ mod tests {
     #[test]
     fn check1() {
 		let mut g = Graph::new(GraphType::Undirected);
-		assert_eq!(g.add_vertex(1),Some(1));
-		assert_eq!(g.add_vertex(2),Some(2));
+		assert_eq!(g.add_vertex(&1),Some(1));
+		assert_eq!(g.add_vertex(&2),Some(2));
 		assert_eq!(g.add_edge(1,2),Ok(1));
 		assert_eq!(g.vertex_list,vec!(1,2));
 		assert_eq!(g.edge_list,vec!("1:1_2".to_string()));
-		assert_eq!(g.add_vertex(3),Some(3));
+		assert_eq!(g.add_vertex(&3),Some(3));
 		assert_eq!(g.add_edge(1,3),Ok(2));
 		assert_eq!(g.add_edge(2,3),Ok(3));
 		assert_eq!(g.vertex_list,vec!(1,2,3));
