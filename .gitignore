@@ -11,3 +11,6 @@ Cargo.lock
 
 # link to executable
 mincut
+
+# temp file for viewing output
+output

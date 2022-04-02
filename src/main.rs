@@ -36,18 +36,18 @@ impl Edge {
 #[derive(Debug, Clone)]
 struct Vertex {
 	vertex_id: u32,
-	adjacent_edges: Vec<String>
+	adjacent: Vec<u32>
 }
 
 impl Vertex {
 
 	pub fn new(id : &u32) -> Vertex {
-		let adjacent = Vec::<String>::new();
-		Vertex {vertex_id: id.clone(), adjacent_edges: adjacent}
+		let adjacent = Vec::<u32>::new();
+		Vertex {vertex_id: id.clone(), adjacent: adjacent}
 	}
 	
-	pub fn add_edge(&mut self, edge_id: String) {
-		self.adjacent_edges.push(edge_id);
+	pub fn add_adjacent(&mut self, vertex_id: u32) {
+		self.adjacent.push(vertex_id);
 	}
 	
 }
@@ -85,6 +85,20 @@ impl Graph {
 		}
 	}
 
+	pub fn print_vertexes(&self) {
+		for (key, value) in &self.vertex_map {
+			let adj_list : String = value.adjacent.iter().map(|x| format!("{} ",x)).collect();
+			println!("Vertex {} ({}) :  {}",key,value.vertex_id,adj_list);
+		}
+					
+	}
+
+	pub fn print_edges(&self) {
+		for (key, value) in &self.edge_map {
+			println!("Edge {} : id {}  v1 {} v2 {} cnt {}",key, value.edge_id, value.vertex1,value.vertex2,value.count);
+		}
+					
+	}
 
 	pub fn create_vertex(&mut self,id: &u32) -> Option<usize> {
 
@@ -159,11 +173,11 @@ impl Graph {
 
 			// add the edge to the first vertex's adjanceny list
 			let mut vert = v_map.get_mut(&v1); 
-			vert.unwrap().add_edge(edge_name.clone());
+			vert.unwrap().add_adjacent(v2);
 
 			// add the edge to the second vertex adjacentcy list
 			vert = v_map.get_mut(&v2); 
-			vert.unwrap().add_edge(edge_name.clone());
+			vert.unwrap().add_adjacent(v1);
 
 //			let mut v_map2 = v_map.clone();
 //			let vert2 = v_map.get_mut(&v2); 
@@ -227,6 +241,8 @@ fn main() {
 			println!("{} - Vertex: {} {:?}",_count,vertex,adjacent);
 		}
     }
+	g.print_vertexes();
+	g.print_edges();
 	println!("Read {} lines",_count);
 
 }
