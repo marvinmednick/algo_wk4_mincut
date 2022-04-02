@@ -31,6 +31,10 @@ impl Edge {
 	pub fn incr_cnt(&mut self) {
 		self.count += 1;
 	}
+
+	pub fn count(&self) -> u32 {
+		self.count
+	}
 }
 
 #[derive(Debug, Clone)]
@@ -123,6 +127,11 @@ impl Graph {
 			let end = cmp::max(v1,v2);
 			format!("{}_{}",start,end).to_string()
 		}
+	}
+
+	pub fn get_edge(&mut self, v1 : u32, v2: u32) -> Option<&Edge> {
+		let edge_name = self.edgename(v1,v2);
+		self.edge_map.get(&edge_name)
 	}
 
 	pub fn edge_exists(&mut self, edge_name : &String) -> bool {
@@ -288,6 +297,16 @@ mod tests {
 		assert_eq!(g.edgename(3,2),"2_3".to_string()); 
 		assert_eq!(g.edgename(10,10),"10_10".to_string()); 
 	}
+
+	#[test]
+	fn test_add() {
+		let mut g = Graph::new(GraphType::Undirected);
+		assert_eq!(g.create_edge(1,2),Some(1));
+		assert!(g.get_edge(2,3).is_none());
+		assert_eq!(g.add_edge(1,2),None);
+		assert_eq!(g.get_edge(1,2).unwrap().count(),2);
+	}
+
 
 
 }
