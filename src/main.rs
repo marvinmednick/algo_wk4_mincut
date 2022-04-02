@@ -1,5 +1,6 @@
 use std::env;
 use std::process;
+use std::cmp;
 use std::path::Path;
 use std::fs::File;
 use std::io::{prelude::*, BufReader};
@@ -12,17 +13,23 @@ struct Edge {
 	edge_id: String,
 	vertex1: u32,
 	vertex2: u32,	
+	count: u32,
 }
 
 
 impl Edge {
 
-	pub fn new(id : String, v1: u32, v2: u32) -> Edge {
+	pub fn new(id : &String, v1: u32, v2: u32) -> Edge {
 		Edge {
-			edge_id: id,
+			edge_id: id.clone(),
 			vertex1: v1,
 			vertex2: v2,
+			count: 1,
 		}
+	}
+
+	pub fn incr_cnt(&mut self) {
+		self.count += 1;
 	}
 }
 
@@ -45,7 +52,7 @@ impl Vertex {
 	
 }
 
-#[derive(Debug)]
+#[derive(Debug, Eq, Ord, PartialEq, PartialOrd)]
 enum GraphType {
 	Undirected,
 	Directed
@@ -59,7 +66,7 @@ struct Graph {
 	pub edge_list:Vec<String>,
 	vertex_map:  HashMap::<u32, Vertex>,
 	edge_map:   HashMap::<String, Edge>,
-	edge_index: u32,
+	//edge_index: u32,
 }
 
 
@@ -75,11 +82,11 @@ impl Graph {
 				edge_list:  e_list,
 				vertex_map: v_map,
 				edge_map:  e_map,
-				edge_index: 0
 		}
 	}
 
-	pub fn add_vertex(&mut self,id: &u32) -> Option<usize> {
+
+	pub fn create_vertex(&mut self,id: &u32) -> Option<usize> {
 
 		if self.vertex_map.contains_key(&id) {
 			None
@@ -93,32 +100,77 @@ impl Graph {
 		
 	}
 
-	pub fn add_edge(&mut self, v1: u32, v2: u32) -> Result<usize,&'static str> {
-
-		let edge_name = format!("{}:{}_{}",self.edge_index+1,v1,v2).to_string();
-
-		// I don't think this can happen since now the edge name is unique
-		// based on an internal incrementing count. so two edges between the same 
-		// vertexes would still have differrent names
-		if self.edge_map.contains_key(&edge_name) {
-			Err("Edge already exists")
-		} 
+	pub fn edgename(&mut self, v1: u32, v2: u32) -> String {
+		if self.graph_type == GraphType::Directed {
+			format!("{}_{}",v1,v2).to_string()
+		}
 		else {
-			self.add_vertex(&v1);
-			self.add_vertex(&v2);
-			let v_map = &mut self.vertex_map;
-			let mut v_map2 = v_map.clone();
-			let vert1 = v_map.get_mut(&v1); 
-			let vert2 = v_map2.get_mut(&v2); 
-			let e = Edge::new(edge_name.clone(),v1,v2);
-			self.edge_map.insert(edge_name.clone(),e);
-			self.edge_list.push(edge_name.clone());
-			vert1.unwrap().add_edge(edge_name.clone());
-			vert2.unwrap().add_edge(edge_name.clone());
-			self.edge_index += 1;
-			Ok(self.edge_list.len())
+			let start = cmp::min(v1,v2);
+			let end = cmp::max(v1,v2);
+			format!("{}_{}",start,end).to_string()
+		}
+	}
+
+	pub fn edge_exists(&mut self, edge_name : &String) -> bool {
+		self.edge_map.contains_key(edge_name)
+	}
+
+	pub fn create_edge(&mut self, v1: u32, v2: u32) -> Option<usize> {
+		let edge_name = self.edgename(v1,v2);
+		if self.edge_exists(&edge_name) {
+			None
+		}
+		else {
+			self.add_edge(v1,v2)
 		}
 
+	}
+
+	pub fn add_edge(&mut self, v1: u32, v2: u32) -> Option<usize> {
+
+		//get the edgename
+		let edge_name = self.edgename(v1,v2);
+
+		//create the vertexes, if the don't exist
+		self.create_vertex(&v1);
+		self.create_vertex(&v2);
+
+		if self.edge_exists(&edge_name) {
+			let e_map = &mut self.edge_map;
+			// know what edge exists, since we just checked
+			let edge = e_map.get_mut(&edge_name).unwrap();
+			edge.incr_cnt();
+			None
+		}
+		// edge doesn't already exists, so create it
+		else {
+
+
+			// create the edge data
+			let e = Edge::new(&edge_name,v1,v2);
+
+			// insert the edge into the map by name
+			self.edge_map.insert(edge_name.clone(),e);
+
+			// add the edge to the edge list
+			self.edge_list.push(edge_name.clone());
+
+			let v_map = &mut self.vertex_map;
+
+			// add the edge to the first vertex's adjanceny list
+			let mut vert = v_map.get_mut(&v1); 
+			vert.unwrap().add_edge(edge_name.clone());
+
+			// add the edge to the second vertex adjacentcy list
+			vert = v_map.get_mut(&v2); 
+			vert.unwrap().add_edge(edge_name.clone());
+
+//			let mut v_map2 = v_map.clone();
+//			let vert2 = v_map.get_mut(&v2); 
+
+			Some(self.edge_list.len())
+
+		}
 	}
 }
 
@@ -167,9 +219,9 @@ fn main() {
 		let vertex = tokens.next().unwrap().parse::<u32>().unwrap();
 		let adjacent : Vec<u32> = tokens.map(|x| x.to_string().parse::<u32>().unwrap()).collect();
 
-		g.add_vertex(&vertex);
+		g.create_vertex(&vertex);
 		for other_v in &adjacent {
-			let num_edges = g.add_edge(vertex,*other_v);
+			let _num_edges = g.create_edge(vertex,*other_v);
 		}
 		if _count < 10 {
 			println!("{} - Vertex: {} {:?}",_count,vertex,adjacent);
@@ -194,23 +246,32 @@ mod tests {
 
 
     #[test]
-    fn check1() {
+    fn basic() {
 		let mut g = Graph::new(GraphType::Undirected);
-		assert_eq!(g.add_vertex(&1),Some(1));
-		assert_eq!(g.add_vertex(&2),Some(2));
-		assert_eq!(g.add_edge(1,2),Ok(1));
+		assert_eq!(g.create_vertex(&1),Some(1));
+		assert_eq!(g.create_vertex(&2),Some(2));
+		assert_eq!(g.create_edge(1,2),Some(1));
 		assert_eq!(g.vertex_list,vec!(1,2));
-		assert_eq!(g.edge_list,vec!("1:1_2".to_string()));
-		assert_eq!(g.add_vertex(&3),Some(3));
-		assert_eq!(g.add_edge(1,3),Ok(2));
-		assert_eq!(g.add_edge(2,3),Ok(3));
+		assert_eq!(g.edge_list,vec!("1_2".to_string()));
+		assert_eq!(g.create_vertex(&3),Some(3));
+		assert_eq!(g.create_edge(1,3),Some(2));
+		assert_eq!(g.create_edge(2,3),Some(3));
 		assert_eq!(g.vertex_list,vec!(1,2,3));
-		assert_eq!(g.edge_list,vec!("1:1_2".to_string(),"2:1_3".to_string(),"3:2_3".to_string()));
-		assert_eq!(g.add_edge(1,4),Ok(4));
+		assert_eq!(g.edge_list,vec!("1_2".to_string(),"1_3".to_string(),"2_3".to_string()));
+		assert_eq!(g.create_edge(1,4),Some(4));
 		assert_eq!(g.vertex_list,vec!(1,2,3,4));
-		assert_eq!(g.edge_list,vec!("1:1_2".to_string(),"2:1_3".to_string(),"3:2_3".to_string(),"4:1_4".to_string()));
+		assert_eq!(g.edge_list,vec!("1_2".to_string(),"1_3".to_string(),"2_3".to_string(),"1_4".to_string()));
 		println!("{:?}",g);
 
     }
+
+	#[test]
+	fn name() {
+		let mut g = Graph::new(GraphType::Undirected);
+		assert_eq!(g.edgename(1,2),"1_2".to_string()); 
+		assert_eq!(g.edgename(3,2),"2_3".to_string()); 
+		assert_eq!(g.edgename(10,10),"10_10".to_string()); 
+	}
+
 
 }
