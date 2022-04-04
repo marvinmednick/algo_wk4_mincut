@@ -55,8 +55,10 @@ impl Vertex {
 	pub fn add_adjacent(&mut self, vertex_id: u32) {
 		self.adjacent.push(vertex_id);
 	}
-	
+
 }
+
+
 
 #[derive(Debug, Eq, Ord, PartialEq, PartialOrd)]
 enum GraphType {
@@ -91,6 +93,12 @@ impl Graph {
 		}
 	}
 
+
+	pub fn get_adjacent(&self, vertex: u32) -> &[u32]{
+		let v = self.vertex_map.get(&vertex).unwrap();
+		&v.adjacent[..]
+		
+	}
 
 	pub fn collapse_edge(&mut self, edge_name: String) {
 
@@ -191,9 +199,11 @@ impl Graph {
 		
 		
 
+
 		let mut index = 0;
 		let  vertex1 = self.vertex_map.get_mut(&v1).unwrap();
-		for v in vertex1.adjacent.iter().rev() {
+		println!("Updating v1 ({}) adj - removing v2 {} {:?}",v1,v2,vertex1.adjacent);
+		for v in vertex1.adjacent.iter() {
 			if *v == v2 {
 				break;
 			} 
@@ -201,6 +211,7 @@ impl Graph {
 				index +=1
 			}
 		}
+		println!("removing at index {}",index);
 		// remove this item from the list
 		vertex1.adjacent.swap_remove(index);
 
@@ -210,7 +221,8 @@ impl Graph {
 		
 		let mut index = 0;
 		let 	vertex2 = self.vertex_map.get_mut(&v2).unwrap();
-		for v in vertex2.adjacent.iter().rev() {
+		println!("Updating v2 ({}) adj - removing v1 {} {:?}",v2,v1,vertex2.adjacent);
+		for v in vertex2.adjacent.iter() {
 			if *v == v1 {
 				break;
 			} 
@@ -218,6 +230,8 @@ impl Graph {
 				index +=1
 			}
 		}
+		println!("removing at index {}",index);
+		// remove this item from the list
 		// remove this item from the list
 		vertex2.adjacent.swap_remove(index);
 
@@ -419,6 +433,25 @@ fn main() {
 mod tests {
     use super::*;
 
+	fn setup_basic1() -> Graph {
+		let mut g = Graph::new(GraphType::Undirected);
+		assert_eq!(g.create_edge(1,2),Some(1));
+		assert_eq!(g.create_edge(1,3),Some(2));
+		assert_eq!(g.create_edge(2,3),Some(3));
+		assert_eq!(g.create_edge(2,4),Some(4));
+		assert_eq!(g.create_edge(3,4),Some(5));
+		assert_eq!(g.get_adjacent(1),&[2,3]);
+		assert_eq!(g.get_adjacent(2),&[1,3,4]);
+		assert_eq!(g.get_adjacent(3),&[1,2,4]);
+		assert_eq!(g.get_adjacent(4),&[2,3]);
+		assert_eq!(g.edge_list,vec!("1_2".to_string(),
+									"1_3".to_string(),
+									"2_3".to_string(),
+									"2_4".to_string(),
+									"3_4".to_string(),
+					));
+		g
+	} 
 
     #[test]
     fn basic() {
@@ -452,19 +485,44 @@ mod tests {
 	fn test_add() {
 		let mut g = Graph::new(GraphType::Undirected);
 		assert_eq!(g.create_edge(1,2),Some(1));
+		assert_eq!(g.get_adjacent(1),&[2]);
+		assert_eq!(g.get_adjacent(2),&[1]);
 		assert!(g.get_edge(2,3).is_none());
 		assert_eq!(g.add_edge(1,2),Some(2));
+		assert_eq!(g.get_adjacent(1),&[2,2]);
+		assert_eq!(g.get_adjacent(2),&[1,1]);
 		assert_eq!(g.get_edge(1,2).unwrap().count(),2);
 	}
 
 	#[test]
+	fn test_add_del() {
+		let mut g = setup_basic1();
+		assert_eq!(g.add_edge(1,2),Some(6));
+		assert_eq!(g.edge_list,vec!("1_2".to_string(),
+									"1_3".to_string(),
+									"2_3".to_string(),
+									"2_4".to_string(),
+									"3_4".to_string(),
+									"1_2".to_string(),
+				));
+		assert_eq!(g.get_adjacent(1),&[2,3,2]);
+		assert_eq!(g.get_adjacent(2),&[1,3,4,1]);
+		assert_eq!(g.get_adjacent(3),&[1,2,4]);
+		assert_eq!(g.delete_edge_by_index(1),Ok(true));
+		assert_eq!(g.edge_list,vec!("1_2".to_string(),
+									"1_2".to_string(),
+									"2_3".to_string(),
+									"2_4".to_string(),
+									"3_4".to_string(),
+				));
+		assert_eq!(g.get_adjacent(1),&[2,2]);
+		assert_eq!(g.get_adjacent(3),&[4,2]);
+		
+	}
+
+//	#[test]
 	fn test_collapse() {
-		let mut g = Graph::new(GraphType::Undirected);
-		assert_eq!(g.create_edge(1,2),Some(1));
-		assert_eq!(g.create_edge(1,3),Some(2));
-		assert_eq!(g.create_edge(2,3),Some(3));
-		assert_eq!(g.create_edge(2,4),Some(4));
-		assert_eq!(g.create_edge(3,4),Some(5));
+		let mut g = setup_basic1();
 		g.print_edges();
 		g.collapse_edge("1_2".to_string());
 		assert_eq!(g.edge_list,vec!("1_3".to_string(),"1_4".to_string()));
