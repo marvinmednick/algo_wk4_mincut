@@ -95,6 +95,9 @@ impl Graph {
 	}
 
 
+	// --------------------------------------
+	// mincut
+
 	pub fn mincut(&mut self) {
 
 		let mut rng = rand::thread_rng();
@@ -131,33 +134,36 @@ impl Graph {
 				let v1_id = self.vertex_map.get(&edge.vertex1).unwrap().vertex_id.clone();
 				let v2 = self.vertex_map.get(&edge.vertex2).unwrap().clone();
 				let v2_id = self.vertex_map.get(&edge.vertex2).unwrap().vertex_id.clone();
-//				println!("collapse edge {} between {} and {}",edge_name,v1_id,v2_id);
+				println!("collapse edge {} between {} and {}",edge_name,v1_id,v2_id);
 				// v1 is kept
 				// v2 is mergeed in
 
+		
+				println!("v2 {:?}",v2);
 
 				for node in v2.adjacent.iter() {
 					let adj_id = node.clone();
-					//let old_adj_edge_name = &self.edgename(v2_id,adj_id);
-					//let new_adj_edge_name = &self.edgename(v1_id,adj_id);
-//					println!("processing adj {} old name {} new name {}",node,old_adj_edge_name, new_adj_edge_name);
+					let _old_adj_edge_name = &self.edgename(v2_id,adj_id);
+					let _new_adj_edge_name = &self.edgename(v1_id,adj_id);
+					println!("processing adj {} old name {} new name {}",node,_old_adj_edge_name, _new_adj_edge_name);
 
-					if self.remove_edge(v2_id,adj_id).is_err() {
-						panic!("error removing edge {} {}", v2_id,adj_id);
+					
+					let result =  self.delete_edge_instance(v2_id,adj_id);
+					if result.is_err() {
+						panic!("error removing edge {} {} {}", v2_id,adj_id,result.unwrap());
 					}
 					if v1_id != adj_id {
 						self.add_edge(v1_id,adj_id);
 
 					}
 				}
-				
-				// for each v in v2.adajacentcy list:
-				//		remove edge (v1,v2)
-				//      if v is not eq v1
-				//			add new edge (v1,v)
-				//			add v to v1.adjacenct
-				
-				// 	delete v2
+
+				// 	delete v2 from the vertex List map
+				// and the vertex list
+				self.vertex_map.remove(&v2_id);
+				if let Some(idx) = self.vertex_list.iter().position(|value| *value == v2_id) {
+					self.vertex_list.swap_remove(idx);
+				}
 
 			}
 
@@ -174,6 +180,7 @@ impl Graph {
 			self.delete_edge_by_index(list_index)
         }
 		else {
+			println!("No such edge {}",edge_name);
 			Err("No such edge")
 		}
 
@@ -183,11 +190,12 @@ impl Graph {
 	pub fn remove_edge(&mut self, v1 : u32, v2: u32) -> Result<bool, &'static str> {
         let edge_name = self.edgename(v1,v2);
 		if !self.edge_map.contains_key(&edge_name) {
+			println!("No such edge {}",edge_name);
 			return Err("No such edge");
 		}
-		//println!("Edge list {:?}",self.edge_list);
+		println!("Edge list {:?}",self.edge_list);
 		while let Some(edge) = self.edge_map.get(&edge_name) {
-		//	println!("Removed Edge {:?}",edge);
+			println!("Removed Edge {:?}",edge);
 			let last_entry = edge.edge_list_indexes.len()-1;
 			let list_index = edge.edge_list_indexes[last_entry];
 		//	println!("last Entry {} list Index {}",last_entry, list_index);
@@ -196,6 +204,7 @@ impl Graph {
 		//	println!("Edge2 {:?}",edge2);
 		//	println!("Edge list {:?}",self.edge_list);
 			if result.is_err() {
+				println!("error during remove edge {}",result.unwrap());
 				return result;
 			}
         }
@@ -608,15 +617,19 @@ mod tests {
 	#[test]
 	fn test_collapse() {
 		let mut g = setup_basic1();
+		assert_eq!(g.vertex_list.len(),4);
 		println!("Before");
 		g.print_edges();
 		g.collapse_edge("1_2".to_string());
+		assert_eq!(g.vertex_list.len(),3);
 		println!("After");
 		g.print_edges();
 		assert_eq!(g.edge_list,vec!("3_4".to_string(),"1_3".to_string(),"1_3".to_string(),"1_4".to_string()));
 		g.collapse_edge("1_3".to_string());
+		assert_eq!(g.vertex_list.len(),2);
 		g.print_edges();
 		assert_eq!(g.edge_list,vec!("1_4".to_string(),"1_4".to_string()));
+		g.print_vertexes();
 	
 	}
 
