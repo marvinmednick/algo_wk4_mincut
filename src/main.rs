@@ -101,13 +101,17 @@ impl Graph {
 	pub fn mincut(&mut self) {
 
 		let mut rng = rand::thread_rng();
-		let num_edges = self.edge_list.len();
-		let selected_edge_idx = rng.gen_range(0..num_edges);
-		let selected_edge = self.edge_list[selected_edge_idx].clone();
-		println!("selected: {} {}", selected_edge_idx,selected_edge);
-		self.collapse_edge(selected_edge);
-		self.print_vertexes();
-		self.print_edges();
+
+		while self.vertex_list.len() > 2 {
+			let num_edges = self.edge_list.len();
+			let selected_edge_idx = rng.gen_range(0..num_edges);
+			let selected_edge = self.edge_list[selected_edge_idx].clone();
+			println!("collapsing {} {:?}",selected_edge_idx,selected_edge);
+			self.collapse_edge(selected_edge);
+			self.print_vertexes();
+			self.print_edges();
+		}
+		println!("Mincut is {}",self.edge_list.len());
 	}
 
 	pub fn get_adjacent(&self, vertex: u32) -> &[u32]{
