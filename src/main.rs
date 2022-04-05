@@ -100,6 +100,16 @@ impl Graph {
 		
 	}
 
+	pub fn get_edge_count(&self, v1: u32, v2: u32) -> u32 {
+        let edge_name = self.edgename(v1,v2);
+        if let Some(edge) = self.edge_map.get(&edge_name) {
+			edge.count
+		}
+		else {
+			0
+		}
+	}
+
 	pub fn collapse_edge(&mut self, edge_name: String) {
 
 
@@ -117,7 +127,7 @@ impl Graph {
 					let adj_id = node.clone();
 					let old_adj_edge_name = &self.edgename(v2_id,adj_id);
 					let new_adj_edge_name = &self.edgename(v1_id,adj_id);
-					println!("processing adj {} old name {} new name {}",node,old_adj_edge_name, new_adj_edge_name);
+//					println!("processing adj {} old name {} new name {}",node,old_adj_edge_name, new_adj_edge_name);
 
 					self.remove_edge(v2_id,adj_id);
 					if v1_id != adj_id {
@@ -141,18 +151,40 @@ impl Graph {
 
 	// Deletes a single instance of an edge
 	// which removes the edge if instance count is 0
-	pub fn delete_edge_instance(&mut self, v1 : u32, v2: u32) {
+	pub fn delete_edge_instance(&mut self, v1 : u32, v2: u32) -> Result<bool,&'static str> {
         let edge_name = self.edgename(v1,v2);
-        if let Some(edge) = self.edge_map.get_mut(&edge_name) {
-        	edge.count -=1;
+        if let Some(edge) = self.edge_map.get(&edge_name) {
+			let last_entry = edge.edge_list_indexes.len()-1;
+			let list_index = edge.edge_list_indexes[last_entry];
+			self.delete_edge_by_index(list_index)
+        }
+		else {
+			Err("No such edge")
+		}
 
-        	if edge.count <= 0 {
-        		// edge should be removed
-        		let _old_edge = self.edge_map.remove(&edge_name);
-        	}
+	}
+
+	// fully remove all instances of the edge
+	pub fn remove_edge(&mut self, v1 : u32, v2: u32) -> Result<bool, &'static str> {
+        let edge_name = self.edgename(v1,v2);
+		if !self.edge_map.contains_key(&edge_name) {
+			return Err("No such edge");
+		}
+		//println!("Edge list {:?}",self.edge_list);
+		while let Some(edge) = self.edge_map.get(&edge_name) {
+		//	println!("Removed Edge {:?}",edge);
+			let last_entry = edge.edge_list_indexes.len()-1;
+			let list_index = edge.edge_list_indexes[last_entry];
+		//	println!("last Entry {} list Index {}",last_entry, list_index);
+			let result = self.delete_edge_by_index(list_index);
+			let edge2 = self.edge_map.get(&edge_name);
+		//	println!("Edge2 {:?}",edge2);
+		//	println!("Edge list {:?}",self.edge_list);
+			if result.is_err() {
+				return result;
+			}
         }
-        else {
-        }
+		Ok(true)
 
 	}
 
@@ -171,6 +203,11 @@ impl Graph {
 
 		// remove the edge from the edge list.
 
+
+		// since this will use swap_remove to remove the item
+		// the item to be deleted will be moved to the end of the
+		// list and the last entry will be moved to its place,
+		// which means the edge_list_indexes for that entry need to be updated
 		let last_entry = self.edge_list.len() -1;
 		if index != last_entry  {
 			// get the current last entry
@@ -194,15 +231,19 @@ impl Graph {
 
 		}
 
+		// remove the entry from the edges list of indexes in the edge_list
+		let edge = self.edge_map.get_mut(&edge_name).unwrap();
+		if let Some(idx) = edge.edge_list_indexes.iter().position(|value| *value == index) {
+			edge.edge_list_indexes.swap_remove(idx);
+		}
+		
+
 		// remove the references from the adjacney lists
 		// first v1's list
 		
-		
-
-
 		let mut index = 0;
 		let  vertex1 = self.vertex_map.get_mut(&v1).unwrap();
-		println!("Updating v1 ({}) adj - removing v2 {} {:?}",v1,v2,vertex1.adjacent);
+//		println!("Updating v1 ({}) adj - removing v2 {} {:?}",v1,v2,vertex1.adjacent);
 		for v in vertex1.adjacent.iter() {
 			if *v == v2 {
 				break;
@@ -211,7 +252,7 @@ impl Graph {
 				index +=1
 			}
 		}
-		println!("removing at index {}",index);
+//		println!("removing at index {}",index);
 		// remove this item from the list
 		vertex1.adjacent.swap_remove(index);
 
@@ -221,7 +262,7 @@ impl Graph {
 		
 		let mut index = 0;
 		let 	vertex2 = self.vertex_map.get_mut(&v2).unwrap();
-		println!("Updating v2 ({}) adj - removing v1 {} {:?}",v2,v1,vertex2.adjacent);
+//		println!("Updating v2 ({}) adj - removing v1 {} {:?}",v2,v1,vertex2.adjacent);
 		for v in vertex2.adjacent.iter() {
 			if *v == v1 {
 				break;
@@ -230,7 +271,7 @@ impl Graph {
 				index +=1
 			}
 		}
-		println!("removing at index {}",index);
+//		println!("removing at index {}",index);
 		// remove this item from the list
 		// remove this item from the list
 		vertex2.adjacent.swap_remove(index);
@@ -238,7 +279,7 @@ impl Graph {
 		// get a new referece to the original edge to remove it
 		let edge = self.edge_map.get_mut(&edge_name).unwrap();
 		// reduce the edge count
-		let _ = edge.count -1;
+		edge.count -= 1;
 		if edge.count <= 0 {
 			// if the count is 0, thee remove the edge from the map
 			self.edge_map.remove(&edge_name);
@@ -247,10 +288,6 @@ impl Graph {
 
 	}
 
-	// fully remove all instances of the edge
-	pub fn remove_edge(&self, v1 : u32, v2: u32) {
-
-	}
 
 	pub fn print_vertexes(&self) {
 		for (key, value) in &self.vertex_map {
@@ -515,17 +552,56 @@ mod tests {
 									"2_4".to_string(),
 									"3_4".to_string(),
 				));
+		assert_eq!(g.get_edge_count(1,2),2);
 		assert_eq!(g.get_adjacent(1),&[2,2]);
 		assert_eq!(g.get_adjacent(3),&[4,2]);
+		assert_eq!(g.delete_edge_instance(1,2),Ok(true));
+		assert_eq!(g.get_edge_count(1,2),1);
+		assert_eq!(g.get_adjacent(1),&[2]);
+		assert_eq!(g.edge_list,vec!("1_2".to_string(),
+									"3_4".to_string(),
+									"2_3".to_string(),
+									"2_4".to_string(),
+				));
+		assert_eq!(g.delete_edge_instance(1,2),Ok(true));
+		assert_eq!(g.get_edge_count(1,2),0);
 		
 	}
 
-//	#[test]
+	#[test]
+	fn test_remove () {
+		let mut g = setup_basic1();
+		assert_eq!(g.add_edge(1,2),Some(6));
+		assert_eq!(g.edge_list,vec!("1_2".to_string(),
+									"1_3".to_string(),
+									"2_3".to_string(),
+									"2_4".to_string(),
+									"3_4".to_string(),
+									"1_2".to_string(),
+				));
+		assert_eq!(g.get_edge_count(1,2),2);
+		assert_eq!(g.remove_edge(1,2),Ok(true));
+		assert_eq!(g.get_edge_count(1,2),0);
+		assert_eq!(g.edge_list,vec!("3_4".to_string(),
+									"1_3".to_string(),
+									"2_3".to_string(),
+									"2_4".to_string(),
+				));
+				
+	}
+
+	#[test]
 	fn test_collapse() {
 		let mut g = setup_basic1();
+		println!("Before");
 		g.print_edges();
 		g.collapse_edge("1_2".to_string());
-		assert_eq!(g.edge_list,vec!("1_3".to_string(),"1_4".to_string()));
+		println!("After");
+		g.print_edges();
+		assert_eq!(g.edge_list,vec!("3_4".to_string(),"1_3".to_string(),"1_3".to_string(),"1_4".to_string()));
+		g.collapse_edge("1_3".to_string());
+		g.print_edges();
+		assert_eq!(g.edge_list,vec!("1_4".to_string(),"1_4".to_string()));
 	
 	}
 
