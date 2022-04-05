@@ -14,6 +14,7 @@ struct Edge {
 	vertex1: u32,
 	vertex2: u32,	
 	count: u32,
+	edge_list_indexes: Vec<usize>,
 }
 
 
@@ -25,6 +26,7 @@ impl Edge {
 			vertex1: v1,
 			vertex2: v2,
 			count: 1,
+			edge_list_indexes: Vec::<usize>::new(),
 		}
 	}
 
@@ -90,24 +92,20 @@ impl Graph {
 	}
 
 
-	pub fn collapse_edge(&self, edge_name: String) {
+	pub fn collapse_edge(&mut self, edge_name: String) {
 
 
 			if let Some(edge) = self.edge_map.get(&edge_name) {
 				// get vertexes from Edge
-				let v_map =  &self.vertex_map;
-				let v1 = &v_map.get(&edge.vertex1).unwrap();
-				let v1_id_test = &v_map.get(&edge.vertex1).unwrap().vertex_id.clone();
-				let v1_id = v1.vertex_id.clone();
-				let v2 = &v_map.get(&edge.vertex2).unwrap();
-				let v2_id = v2.vertex_id.clone();
+				let v1_id = self.vertex_map.get(&edge.vertex1).unwrap().vertex_id.clone();
+				let v2 = self.vertex_map.get(&edge.vertex2).unwrap().clone();
+				let v2_id = self.vertex_map.get(&edge.vertex2).unwrap().vertex_id.clone();
 //				println!("collapse edge {} between {} and {}",edge_name,v1_id,v2_id);
 				// v1 is kept
 				// v2 is mergeed in
 
 
-				let iter1 = v2.adjacent.iter().clone();
-				for node in iter1 {
+				for node in v2.adjacent.iter() {
 					let adj_id = node.clone();
 					let old_adj_edge_name = &self.edgename(v2_id,adj_id);
 					let new_adj_edge_name = &self.edgename(v1_id,adj_id);
@@ -135,7 +133,103 @@ impl Graph {
 
 	// Deletes a single instance of an edge
 	// which removes the edge if instance count is 0
-	pub fn delete_edge_instance(&self, v1 : u32, v2: u32) {
+	pub fn delete_edge_instance(&mut self, v1 : u32, v2: u32) {
+        let edge_name = self.edgename(v1,v2);
+        if let Some(edge) = self.edge_map.get_mut(&edge_name) {
+        	edge.count -=1;
+
+        	if edge.count <= 0 {
+        		// edge should be removed
+        		let _old_edge = self.edge_map.remove(&edge_name);
+        	}
+        }
+        else {
+        }
+
+	}
+
+	pub fn delete_edge_by_index(&mut self,index: usize)  -> Result<bool,&'static str> {
+		if index >= self.edge_list.len() {
+			return Err("Index out of range");
+		}
+
+		// get the edge name from Vector by the index
+		let edge_name = self.edge_list[index].clone();
+
+		// get referece to the edge stucture itself bu lookup in the map
+		let edge = self.edge_map.get(&edge_name).unwrap();
+		let v1 = edge.vertex1.clone();
+		let v2 = edge.vertex2.clone();
+
+		// remove the edge from the edge list.
+
+		let last_entry = self.edge_list.len() -1;
+		if index != last_entry  {
+			// get the current last entry
+			let swap_entry = self.edge_list[last_entry].clone();
+			let _old_entry = self.edge_list.swap_remove(index);
+
+			let swap_edge = self.edge_map.get_mut(&swap_entry).unwrap();
+
+			// search for the matching entry in the edge so that it an 
+			// be updated with its new index
+			for idx in swap_edge.edge_list_indexes.iter_mut().rev() {
+				if *idx == last_entry {
+					*idx = index;
+					break;
+				}
+			}
+		} 
+		else {
+			// the edge to delete from the lsit if the last entry, so it can just be removed
+			let _old_entry = self.edge_list.swap_remove(index);
+
+		}
+
+		// remove the references from the adjacney lists
+		// first v1's list
+		
+		
+
+		let mut index = 0;
+		let  vertex1 = self.vertex_map.get_mut(&v1).unwrap();
+		for v in vertex1.adjacent.iter().rev() {
+			if *v == v2 {
+				break;
+			} 
+			else {
+				index +=1
+			}
+		}
+		// remove this item from the list
+		vertex1.adjacent.swap_remove(index);
+
+
+		// then search through v2's list to 
+		// remove the reference to v1
+		
+		let mut index = 0;
+		let 	vertex2 = self.vertex_map.get_mut(&v2).unwrap();
+		for v in vertex2.adjacent.iter().rev() {
+			if *v == v1 {
+				break;
+			} 
+			else {
+				index +=1
+			}
+		}
+		// remove this item from the list
+		vertex2.adjacent.swap_remove(index);
+
+		// get a new referece to the original edge to remove it
+		let edge = self.edge_map.get_mut(&edge_name).unwrap();
+		// reduce the edge count
+		let _ = edge.count -1;
+		if edge.count <= 0 {
+			// if the count is 0, thee remove the edge from the map
+			self.edge_map.remove(&edge_name);
+		}
+		Ok(true)
 
 	}
 
@@ -154,20 +248,24 @@ impl Graph {
 
 	pub fn print_edges(&self) {
 		for (key, value) in &self.edge_map {
-			println!("Edge {} : id {}  v1 {} v2 {} cnt {}",key, value.edge_id, value.vertex1,value.vertex2,value.count);
+			println!("Edge {} : id {}  v1 {} v2 {} cnt {} {:?}",key, value.edge_id, value.vertex1,value.vertex2,value.count,value.edge_list_indexes);
+		}
+		let mut count = 0;
+		for edge in &self.edge_list {
+			println!("index {} - {}",count,edge);
+			count += 1;
 		}
 					
 	}
 
-	pub fn create_vertex(&self,id: &u32) -> Option<usize> {
+	pub fn create_vertex(&mut self,id: &u32) -> Option<usize> {
 
 		if self.vertex_map.contains_key(&id) {
 			None
 		} 
 		else { 
 			let v = Vertex::new(&id);
-			let mut v_map = self.vertex_map;
-			v_map.insert(id.clone(),v);
+			self.vertex_map.insert(id.clone(),v);
 			self.vertex_list.push(id.clone());
 			Some(self.vertex_list.len())
 		}
@@ -185,7 +283,7 @@ impl Graph {
 		}
 	}
 
-	pub fn get_edge(&mut self, v1 : u32, v2: u32) -> Option<&Edge> {
+	pub fn get_edge(&self, v1 : u32, v2: u32) -> Option<&Edge> {
 		let edge_name = self.edgename(v1,v2);
 		self.edge_map.get(&edge_name)
 	}
@@ -205,7 +303,7 @@ impl Graph {
 
 	}
 
-	pub fn add_edge(&self, v1: u32, v2: u32) -> Option<usize> {
+	pub fn add_edge(&mut self, v1: u32, v2: u32) -> Option<usize> {
 
 		//get the edgename
 		let edge_name = self.edgename(v1,v2);
@@ -214,49 +312,38 @@ impl Graph {
 		self.create_vertex(&v1);
 		self.create_vertex(&v2);
 
+		
 		if self.edge_exists(&edge_name) {
-			let e_map = &mut self.edge_map;
+			
 			// know what edge exists, since we just checked
-			let edge = e_map.get_mut(&edge_name).unwrap();
+			let edge = self.edge_map.get_mut(&edge_name).unwrap();
+			
 			edge.incr_cnt();
-
-			let v_map = &mut self.vertex_map;
-			// add the edge to the first vertex's adjanceny list
-			let mut vert = v_map.get_mut(&v1); 
-			vert.unwrap().add_adjacent(v2);
-
-			// add the edge to the second vertex adjacentcy list
-			vert = v_map.get_mut(&v2); 
-			vert.unwrap().add_adjacent(v1);
-
-			None
 		}
-		// edge doesn't already exists, so create it
 		else {
-
-
-			// create the edge data
-			let e = Edge::new(&edge_name,v1,v2);
+			let new_edge = Edge::new(&edge_name,v1,v2);
 
 			// insert the edge into the map by name
-			self.edge_map.insert(edge_name.clone(),e);
-
-			// add the edge to the edge list
-			self.edge_list.push(edge_name.clone());
-
-			let v_map = &mut self.vertex_map;
-
-			// add the edge to the first vertex's adjanceny list
-			let mut vert = v_map.get_mut(&v1); 
-			vert.unwrap().add_adjacent(v2);
-
-			// add the edge to the second vertex adjacentcy list
-			vert = v_map.get_mut(&v2); 
-			vert.unwrap().add_adjacent(v1);
-
-			Some(self.edge_list.len())
+			self.edge_map.insert(edge_name.clone(),new_edge);		
 
 		}
+
+		let v_map = &mut self.vertex_map;
+		// add the edge to the first vertex's adjanceny list
+		let mut vert = v_map.get_mut(&v1); 
+		vert.unwrap().add_adjacent(v2);
+
+		// add the edge to the second vertex adjacentcy list
+		vert = v_map.get_mut(&v2); 
+		vert.unwrap().add_adjacent(v1);
+
+		// add the edge to edge list
+		self.edge_list.push(edge_name.clone());
+		let edge = self.edge_map.get_mut(&edge_name).unwrap();
+		edge.edge_list_indexes.push(self.edge_list.len()-1);
+			
+		Some(self.edge_list.len())
+
 	}
 }
 
@@ -355,7 +442,7 @@ mod tests {
 
 	#[test]
 	fn name() {
-		let mut g = Graph::new(GraphType::Undirected);
+		let g = Graph::new(GraphType::Undirected);
 		assert_eq!(g.edgename(1,2),"1_2".to_string()); 
 		assert_eq!(g.edgename(3,2),"2_3".to_string()); 
 		assert_eq!(g.edgename(10,10),"10_10".to_string()); 
@@ -366,7 +453,7 @@ mod tests {
 		let mut g = Graph::new(GraphType::Undirected);
 		assert_eq!(g.create_edge(1,2),Some(1));
 		assert!(g.get_edge(2,3).is_none());
-		assert_eq!(g.add_edge(1,2),None);
+		assert_eq!(g.add_edge(1,2),Some(2));
 		assert_eq!(g.get_edge(1,2).unwrap().count(),2);
 	}
 
@@ -378,6 +465,7 @@ mod tests {
 		assert_eq!(g.create_edge(2,3),Some(3));
 		assert_eq!(g.create_edge(2,4),Some(4));
 		assert_eq!(g.create_edge(3,4),Some(5));
+		g.print_edges();
 		g.collapse_edge("1_2".to_string());
 		assert_eq!(g.edge_list,vec!("1_3".to_string(),"1_4".to_string()));
 	
