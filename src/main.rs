@@ -5,6 +5,7 @@ use std::path::Path;
 use std::fs::File;
 use std::io::{prelude::*, BufReader};
 use std::collections::{HashMap};
+use rand::Rng;
 
 
 
@@ -94,6 +95,18 @@ impl Graph {
 	}
 
 
+	pub fn mincut(&mut self) {
+
+		let mut rng = rand::thread_rng();
+		let num_edges = self.edge_list.len();
+		let selected_edge_idx = rng.gen_range(0..num_edges);
+		let selected_edge = self.edge_list[selected_edge_idx].clone();
+		println!("selected: {} {}", selected_edge_idx,selected_edge);
+		self.collapse_edge(selected_edge);
+		self.print_vertexes();
+		self.print_edges();
+	}
+
 	pub fn get_adjacent(&self, vertex: u32) -> &[u32]{
 		let v = self.vertex_map.get(&vertex).unwrap();
 		&v.adjacent[..]
@@ -125,11 +138,13 @@ impl Graph {
 
 				for node in v2.adjacent.iter() {
 					let adj_id = node.clone();
-					let old_adj_edge_name = &self.edgename(v2_id,adj_id);
-					let new_adj_edge_name = &self.edgename(v1_id,adj_id);
+					//let old_adj_edge_name = &self.edgename(v2_id,adj_id);
+					//let new_adj_edge_name = &self.edgename(v1_id,adj_id);
 //					println!("processing adj {} old name {} new name {}",node,old_adj_edge_name, new_adj_edge_name);
 
-					self.remove_edge(v2_id,adj_id);
+					if self.remove_edge(v2_id,adj_id).is_err() {
+						panic!("error removing edge {} {}", v2_id,adj_id);
+					}
 					if v1_id != adj_id {
 						self.add_edge(v1_id,adj_id);
 
@@ -177,7 +192,7 @@ impl Graph {
 			let list_index = edge.edge_list_indexes[last_entry];
 		//	println!("last Entry {} list Index {}",last_entry, list_index);
 			let result = self.delete_edge_by_index(list_index);
-			let edge2 = self.edge_map.get(&edge_name);
+		//  let edge2 = self.edge_map.get(&edge_name);
 		//	println!("Edge2 {:?}",edge2);
 		//	println!("Edge list {:?}",self.edge_list);
 			if result.is_err() {
@@ -603,6 +618,12 @@ mod tests {
 		g.print_edges();
 		assert_eq!(g.edge_list,vec!("1_4".to_string(),"1_4".to_string()));
 	
+	}
+
+	#[test]
+	fn test_mincut() {
+		let mut g = setup_basic1();
+		g.mincut();
 	}
 
 
