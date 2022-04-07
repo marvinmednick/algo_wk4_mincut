@@ -9,7 +9,7 @@ use rand::Rng;
 
 
 
-#[derive(Debug)]
+#[derive(Debug,Clone)]
 struct Edge {
 	edge_id: String,
 	vertex1: u32,
@@ -61,14 +61,14 @@ impl Vertex {
 
 
 
-#[derive(Debug, Eq, Ord, PartialEq, PartialOrd)]
+#[derive(Debug, Clone, Eq, Ord, PartialEq, PartialOrd)]
 enum GraphType {
 	Undirected,
 	Directed
 
 }
 
-#[derive(Debug)]
+#[derive(Debug,Clone)]
 struct Graph {
 	graph_type: GraphType,
 	pub vertex_list: Vec<u32>,
@@ -98,7 +98,7 @@ impl Graph {
 	// --------------------------------------
 	// mincut
 
-	pub fn mincut(&mut self) {
+	pub fn mincut(&mut self) -> usize {
 
 		let mut rng = rand::thread_rng();
 
@@ -106,12 +106,12 @@ impl Graph {
 			let num_edges = self.edge_list.len();
 			let selected_edge_idx = rng.gen_range(0..num_edges);
 			let selected_edge = self.edge_list[selected_edge_idx].clone();
-			println!("collapsing {} {:?}",selected_edge_idx,selected_edge);
+	//		println!("collapsing {} {:?}",selected_edge_idx,selected_edge);
 			self.collapse_edge(selected_edge);
-			self.print_vertexes();
-			self.print_edges();
+//			self.print_vertexes();
+//			self.print_edges();
 		}
-		println!("Mincut is {}",self.edge_list.len());
+		self.edge_list.len()
 	}
 
 	pub fn get_adjacent(&self, vertex: u32) -> &[u32]{
@@ -138,18 +138,18 @@ impl Graph {
 				let v1_id = self.vertex_map.get(&edge.vertex1).unwrap().vertex_id.clone();
 				let v2 = self.vertex_map.get(&edge.vertex2).unwrap().clone();
 				let v2_id = self.vertex_map.get(&edge.vertex2).unwrap().vertex_id.clone();
-				println!("collapse edge {} between {} and {}",edge_name,v1_id,v2_id);
+				//println!("collapse edge {} between {} and {}",edge_name,v1_id,v2_id);
 				// v1 is kept
 				// v2 is mergeed in
 
 		
-				println!("v2 {:?}",v2);
+				//println!("v2 {:?}",v2);
 
 				for node in v2.adjacent.iter() {
 					let adj_id = node.clone();
 					let _old_adj_edge_name = &self.edgename(v2_id,adj_id);
 					let _new_adj_edge_name = &self.edgename(v1_id,adj_id);
-					println!("processing adj {} old name {} new name {}",node,_old_adj_edge_name, _new_adj_edge_name);
+				//	println!("processing adj {} old name {} new name {}",node,_old_adj_edge_name, _new_adj_edge_name);
 
 					
 					let result =  self.delete_edge_instance(v2_id,adj_id);
@@ -197,9 +197,9 @@ impl Graph {
 			println!("No such edge {}",edge_name);
 			return Err("No such edge");
 		}
-		println!("Edge list {:?}",self.edge_list);
+//		println!("Edge list {:?}",self.edge_list);
 		while let Some(edge) = self.edge_map.get(&edge_name) {
-			println!("Removed Edge {:?}",edge);
+//			println!("Removed Edge {:?}",edge);
 			let last_entry = edge.edge_list_indexes.len()-1;
 			let list_index = edge.edge_list_indexes[last_entry];
 		//	println!("last Entry {} list Index {}",last_entry, list_index);
@@ -430,24 +430,21 @@ impl Graph {
 
 fn main() {
 
-	let mut foo = vec![
-		Vec::<u32>::new()
-	];
-	foo.push( Vec::<u32>::new());
-	foo[0].push(1u32);
-
-
- 	println!("foo {:?}", foo);
-
 
     let args: Vec<String> = env::args().collect();
 
 	println!("Args {:?} {}",args,args.len());
 
 	if args.len() < 2 {
-        eprintln!("Usage: {} filename", args[0]);
+        eprintln!("Usage: {} filename <count>", args[0]);
         process::exit(1);
 	}
+	let mut attempts : u32 = 1;
+	if args.len() > 2 {
+		attempts = args[2].parse().unwrap();
+	}
+	println!("Attempting mincut {} times",attempts);
+
 
   // Create a path to the desired file
     let path = Path::new(&args[1]);
@@ -475,13 +472,21 @@ fn main() {
 		for other_v in &adjacent {
 			let _num_edges = g.create_edge(vertex,*other_v);
 		}
-		if _count < 10 {
-			println!("{} - Vertex: {} {:?}",_count,vertex,adjacent);
-		}
     }
-	g.print_vertexes();
-	g.print_edges();
 	println!("Read {} lines",_count);
+	// start the 'min' with the total number of edges... 
+	let mut min_min_cuts = g.edge_list.len();
+	let mut count = 0;
+	while count < attempts {
+		count += 1;
+		let mut working_g = g.clone();
+		let result = working_g.mincut();
+		if result < min_min_cuts {
+			min_min_cuts = result;
+		}
+		println!("Attempt {} Mincut is {} (min mincut is {})",count,result,min_min_cuts);
+	}
+	//g.print_edges();
 
 }
 
